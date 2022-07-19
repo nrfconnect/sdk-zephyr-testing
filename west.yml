@@ -57,7 +57,7 @@ manifest:
       groups:
         - hal
     - name: hal_atmel
-      revision: 78c5567c05b6b434dd7d98f49156319df4217bac
+      revision: bb4e7104132bdc22c7cc7e20057434c2979e6706
       path: modules/hal/atmel
       groups:
         - hal
@@ -68,7 +68,7 @@ manifest:
       groups:
         - hal
     - name: hal_gigadevice
-      revision: cc8bc14c612e5ecfcb0435f6da53f3302e25014a
+      revision: 7f15468b07807ae6a913e0e9cbabfaa23a206bc6
       path: modules/hal/gigadevice
       groups:
         - hal
@@ -93,7 +93,7 @@ manifest:
       groups:
         - hal
     - name: hal_nxp
-      revision: 5cefb64458d0c2bac83e940ba520afa6c85832a0
+      revision: 00acb97521c171f4620c21fe5fa2a2c3ef49bdae
       path: modules/hal/nxp
       groups:
         - hal
@@ -114,7 +114,7 @@ manifest:
       groups:
         - hal
     - name: hal_silabs
-      revision: be39d4eebeddac6e18e9c0c3ba1b31ad1e82eaed
+      revision: 08dd39f1a20a2aaec596b909c31e9b23d7fef09d
       path: modules/hal/silabs
       groups:
         - hal
@@ -140,12 +140,12 @@ manifest:
       groups:
         - hal
     - name: hal_xtensa
-      revision: 0e577021bb66e644afd067cd9f7c71ab11b62b3d
+      revision: c7fe0872bc3c910068527f0fe841bd4030874e0e
       path: modules/hal/xtensa
       groups:
         - hal
     - name: libmetal
-      revision: 850a3c3fd5bc655987021dc9106d8e8cd0f7e061
+      revision: 2f586b4f1276fb075ee145421bdf6cbe5403aa41
       path: modules/hal/libmetal
       groups:
         - hal
@@ -183,7 +183,7 @@ manifest:
       revision: d148bd26718e4c10414f07a7eb1bd24c62e56c5d
       path: modules/lib/nanopb
     - name: net-tools
-      revision: f49bd1354616fae4093bf36e5eaee43c51a55127
+      revision: e0828aa9629b533644dc96ff6d1295c939bd713c
       path: tools/net-tools
       groups:
         - tools
@@ -194,7 +194,7 @@ manifest:
       revision: 8d53544871e1f300c478224faca6be8384ab0d04
       path: modules/lib/open-amp
     - name: openthread
-      revision: dc5fe8d71b613a036e962c0249e0c9100936fe5a
+      revision: 978a600f09b892c7ab4b27c10604a574ea20e05e
       path: modules/lib/openthread
     - name: picolibc
       path: modules/lib/picolibc
@@ -220,7 +220,7 @@ manifest:
       groups:
         - crypto
     - name: TraceRecorderSource
-      revision: e8ca3b6a83d19b2fc4738a0d9607190436e5e452
+      revision: 9893bf1cf649a2c4ee2e27293f887994f3d0da5b
       path: modules/debug/TraceRecorder
       groups:
         - debug
@@ -240,7 +240,7 @@ manifest:
       groups:
         - tee
     - name: zcbor
-      revision: 882c489a7d9fdfff31d27666914a78a9eb6976d7
+      revision: a0d6981f14d4001d6f0d608d1a427f9bc6bb6d02
       path: modules/lib/zcbor
     - name: zscilib
       path: modules/lib/zscilib
