@@ -7,6 +7,7 @@
 #define DT_DRV_COMPAT swir_hl7800
 
 #include <zephyr/logging/log.h>
+#include <zephyr/logging/log_ctrl.h>
 LOG_MODULE_REGISTER(modem_hl7800, CONFIG_MODEM_LOG_LEVEL);
 
 #include <zephyr/types.h>
@@ -435,8 +436,7 @@ struct hl7800_socket {
 	bool reconfig;
 	int socket_id;
 	int rx_size;
-	bool error;
-	int error_val;
+	int error;
 	enum socket_state state;
 
 	/** semaphore */
@@ -845,8 +845,7 @@ static void socket_put(struct hl7800_socket *sock)
 	sock->socket_id = -1;
 	sock->created = false;
 	sock->reconfig = false;
-	sock->error = false;
-	sock->error_val = -1;
+	sock->error = 0;
 	sock->rx_size = 0;
 	sock->state = SOCK_IDLE;
 	(void)memset(&sock->src, 0, sizeof(struct sockaddr));
@@ -1006,6 +1005,7 @@ static int send_at_cmd(struct hl7800_socket *sock, const uint8_t *data,
 			k_sem_reset(&ictx.response_sem);
 			ictx.last_socket_id = 0;
 		} else {
+			sock->error = 0;
 			k_sem_reset(&sock->sock_send_sem);
 			ictx.last_socket_id = sock->socket_id;
 		}
@@ -1015,7 +1015,7 @@ static int send_at_cmd(struct hl7800_socket *sock, const uint8_t *data,
 			ictx.search_no_id_resp = true;
 		}
 
-		LOG_DBG("OUT: [%s]", log_strdup(data));
+		LOG_DBG("OUT: [%s]", data);
 		mdm_receiver_send(&ictx.mdm_ctx, data, strlen(data));
 		mdm_receiver_send(&ictx.mdm_ctx, "\r", 1);
 
@@ -1030,7 +1030,11 @@ static int send_at_cmd(struct hl7800_socket *sock, const uint8_t *data,
 		}
 
 		if (ret == 0) {
-			ret = ictx.last_error;
+			if (sock) {
+				ret = sock->error;
+			} else {
+				ret = ictx.last_error;
+			}
 		} else if (ret == -EAGAIN) {
 			ret = -ETIMEDOUT;
 		}
@@ -1383,6 +1387,20 @@ void mdm_hl7800_generate_status_events(void)
 	hl7800_unlock();
 }
 
+uint32_t mdm_hl7800_log_filter_set(uint32_t level)
+{
+	uint32_t new_log_level = 0;
+
+#ifdef CONFIG_LOG
+	new_log_level =
+		log_filter_set(NULL, CONFIG_LOG_DOMAIN_ID,
+			       log_source_id_get(STRINGIFY(LOG_MODULE_NAME)),
+			       level);
+#endif
+
+	return new_log_level;
+}
+
 static int send_data(struct hl7800_socket *sock, struct net_pkt *pkt)
 {
 	int ret;
@@ -1397,7 +1415,7 @@ static int send_data(struct hl7800_socket *sock, struct net_pkt *pkt)
 		return -EINVAL;
 	}
 
-	ictx.last_error = 0;
+	sock->error = 0;
 	sock->state = SOCK_TX;
 
 	frag = pkt->frags;
@@ -1426,8 +1444,8 @@ static int send_data(struct hl7800_socket *sock, struct net_pkt *pkt)
 		goto done;
 	}
 	/* check for error */
-	if (ictx.last_error != 0) {
-		ret = ictx.last_error;
+	if (sock->error != 0) {
+		ret = sock->error;
 		LOG_ERR("AT+K**PSND (%d)", ret);
 		goto done;
 	}
@@ -1449,13 +1467,15 @@ static int send_data(struct hl7800_socket *sock, struct net_pkt *pkt)
 	mdm_receiver_send(&ictx.mdm_ctx, EOF_PATTERN, strlen(EOF_PATTERN));
 	ret = k_sem_take(&sock->sock_send_sem, MDM_IP_SEND_RX_TIMEOUT);
 	if (ret == 0) {
-		ret = ictx.last_error;
+		ret = sock->error;
 	} else if (ret == -EAGAIN) {
 		ret = -ETIMEDOUT;
 	}
 done:
 	if (sock->type == SOCK_STREAM) {
-		sock->state = SOCK_CONNECTED;
+		if (sock->error == 0) {
+			sock->state = SOCK_CONNECTED;
+		}
 	} else {
 		sock->state = SOCK_IDLE;
 	}
@@ -1672,7 +1692,7 @@ static bool on_cmd_atcmdinfo_manufacturer(struct net_buf **buf, uint16_t len)
 				    sizeof(ictx.mdm_manufacturer) - 1, *buf, 0,
 				    len);
 	ictx.mdm_manufacturer[out_len] = 0;
-	LOG_INF("Manufacturer: %s", log_strdup(ictx.mdm_manufacturer));
+	LOG_INF("Manufacturer: %s", ictx.mdm_manufacturer);
 done:
 	return true;
 }
@@ -1706,7 +1726,7 @@ static bool on_cmd_atcmdinfo_model(struct net_buf **buf, uint16_t len)
 	out_len = net_buf_linearize(ictx.mdm_model, sizeof(ictx.mdm_model) - 1,
 				    *buf, 0, len);
 	ictx.mdm_model[out_len] = 0;
-	LOG_INF("Model: %s", log_strdup(ictx.mdm_model));
+	LOG_INF("Model: %s", ictx.mdm_model);
 done:
 	return true;
 }
@@ -1739,7 +1759,7 @@ static bool on_cmd_atcmdinfo_revision(struct net_buf **buf, uint16_t len)
 	out_len = net_buf_linearize(
 		ictx.mdm_revision, sizeof(ictx.mdm_revision) - 1, *buf, 0, len);
 	ictx.mdm_revision[out_len] = 0;
-	LOG_INF("Revision: %s", log_strdup(ictx.mdm_revision));
+	LOG_INF("Revision: %s", ictx.mdm_revision);
 	event_handler(HL7800_EVENT_REVISION, ictx.mdm_revision);
 done:
 	return true;
@@ -1774,7 +1794,7 @@ static bool on_cmd_atcmdinfo_imei(struct net_buf **buf, uint16_t len)
 				    *buf, 0, len);
 	ictx.mdm_imei[out_len] = 0;
 
-	LOG_INF("IMEI: %s", log_strdup(ictx.mdm_imei));
+	LOG_INF("IMEI: %s", ictx.mdm_imei);
 done:
 	return true;
 }
@@ -1806,7 +1826,7 @@ static bool on_cmd_atcmdinfo_iccid(struct net_buf **buf, uint16_t len)
 				    *buf, 0, len);
 	ictx.mdm_iccid[out_len] = 0;
 
-	LOG_INF("ICCID: %s", log_strdup(ictx.mdm_iccid));
+	LOG_INF("ICCID: %s", ictx.mdm_iccid);
 done:
 	return true;
 }
@@ -1842,7 +1862,7 @@ static bool on_cmd_atcmdinfo_imsi(struct net_buf **buf, uint16_t len)
 		memset(ictx.mdm_imsi, 0, sizeof(ictx.mdm_imsi));
 	}
 
-	LOG_INF("IMSI: %s", log_strdup(ictx.mdm_imsi));
+	LOG_INF("IMSI: %s", ictx.mdm_imsi);
 done:
 	return true;
 }
@@ -1962,14 +1982,14 @@ static bool on_cmd_atcmdinfo_ipaddr(struct net_buf **buf, uint16_t len)
 	out_len = net_buf_linearize(value, sizeof(value), *buf, 0, len);
 	value[out_len] = 0;
 	search_start = value;
-	LOG_DBG("IP info: %s", log_strdup(value));
+	LOG_DBG("IP info: %s", value);
 
 	/* find all delimiters (,) */
 	for (int i = 0; i < num_delims; i++) {
 		delims[i] = strchr(search_start, ',');
 		if (!delims[i]) {
 			LOG_ERR("Could not find delim %d, val: %s", i,
-				log_strdup(value));
+				value);
 			return true;
 		}
 		/* Start next search after current delim location */
@@ -2009,7 +2029,7 @@ static bool on_cmd_atcmdinfo_ipaddr(struct net_buf **buf, uint16_t len)
 	addr_len = sm_start - addr_start;
 	strncpy(temp_addr_str, addr_start, addr_len);
 	temp_addr_str[addr_len] = 0;
-	LOG_DBG("IP addr: %s", log_strdup(temp_addr_str));
+	LOG_DBG("IP addr: %s", temp_addr_str);
 	if (is_ipv4) {
 		ret = net_addr_pton(AF_INET, temp_addr_str, &new_ipv4_addr);
 	} else {
@@ -2052,7 +2072,7 @@ static bool on_cmd_atcmdinfo_ipaddr(struct net_buf **buf, uint16_t len)
 		strncpy(ictx.dns_v4_string, addr_start, addr_len);
 		ictx.dns_v4_string[addr_len] = 0;
 		ret = net_addr_pton(AF_INET, ictx.dns_v4_string, &ictx.dns_v4);
-		LOG_DBG("IPv4 DNS addr: %s", log_strdup(ictx.dns_v4_string));
+		LOG_DBG("IPv4 DNS addr: %s", ictx.dns_v4_string);
 	}
 #ifdef CONFIG_NET_IPV6
 	else {
@@ -2062,7 +2082,7 @@ static bool on_cmd_atcmdinfo_ipaddr(struct net_buf **buf, uint16_t len)
 		ret = hl7800_net_addr6_pton(ictx.dns_v6_string, &ictx.dns_v6);
 		net_addr_ntop(AF_INET6, &ictx.dns_v6, ictx.dns_v6_string,
 			      sizeof(ictx.dns_v6_string));
-		LOG_DBG("IPv6 DNS addr: %s", log_strdup(ictx.dns_v6_string));
+		LOG_DBG("IPv6 DNS addr: %s", ictx.dns_v6_string);
 	}
 #endif
 	if (ret < 0) {
@@ -2138,7 +2158,7 @@ static bool on_cmd_atcmdinfo_operator_status(struct net_buf **buf, uint16_t len)
 		LOG_HEXDUMP_DBG(value, out_len, "Operator: ");
 		goto done;
 	} else {
-		LOG_INF("Operator: %s", log_strdup(value));
+		LOG_INF("Operator: %s", value);
 	}
 
 	/* Process AT+COPS? */
@@ -2154,7 +2174,7 @@ static bool on_cmd_atcmdinfo_operator_status(struct net_buf **buf, uint16_t len)
 	for (i = 0; i < num_delims; i++) {
 		delims[i] = strchr(search_start, ',');
 		if (!delims[i]) {
-			LOG_ERR("Could not find delim %d, val: %s", i, log_strdup(value));
+			LOG_ERR("Could not find delim %d, val: %s", i, value);
 			goto done;
 		}
 		/* Start next search after current delim location */
@@ -2212,7 +2232,7 @@ static bool on_cmd_atcmdinfo_serial_number(struct net_buf **buf, uint16_t len)
 
 	strncpy(ictx.mdm_sn, val_start, sn_len);
 	ictx.mdm_sn[sn_len] = 0;
-	LOG_INF("Serial #: %s", log_strdup(ictx.mdm_sn));
+	LOG_INF("Serial #: %s", ictx.mdm_sn);
 done:
 	return true;
 }
@@ -2465,8 +2485,8 @@ static char *get_fota_state_string(enum mdm_hl7800_fota_state state)
 static void set_fota_state(enum mdm_hl7800_fota_state state)
 {
 	LOG_INF("FOTA state: %s->%s",
-		log_strdup(get_fota_state_string(ictx.fw_update_state)),
-		log_strdup(get_fota_state_string(state)));
+		get_fota_state_string(ictx.fw_update_state),
+		get_fota_state_string(state));
 	ictx.fw_update_state = state;
 	generate_fota_state_event();
 }
@@ -2550,7 +2570,7 @@ static bool profile_handler(struct net_buf **buf, uint16_t len,
 		memset(line, 0, sizeof(line));
 		output_length = net_buf_linearize(line, SIZE_WITHOUT_NUL(line),
 						  *buf, 0, line_length);
-		LOG_DBG("length: %u: %s", line_length, log_strdup(line));
+		LOG_DBG("length: %u: %s", line_length, line);
 
 		/* Echo on off is the first thing on the line: E0, E1 */
 		if (output_length >= SIZE_WITHOUT_NUL("E?")) {
@@ -2611,7 +2631,7 @@ static bool on_cmd_atcmdinfo_pdp_authentication_cfg(struct net_buf **buf,
 		memset(line, 0, sizeof(line));
 		output_length = net_buf_linearize(line, SIZE_WITHOUT_NUL(line),
 						  *buf, 0, line_length);
-		LOG_DBG("length: %u: %s", line_length, log_strdup(line));
+		LOG_DBG("length: %u: %s", line_length, line);
 		if (output_length > 0) {
 			memset(ictx.mdm_apn.username, 0,
 			       sizeof(ictx.mdm_apn.username));
@@ -2630,7 +2650,7 @@ static bool on_cmd_atcmdinfo_pdp_authentication_cfg(struct net_buf **buf,
 				}
 			}
 			LOG_INF("APN Username: %s",
-				log_strdup(ictx.mdm_apn.username));
+				ictx.mdm_apn.username);
 
 			p = strchr(p + 1, '"');
 			if (p != NULL) {
@@ -2643,7 +2663,7 @@ static bool on_cmd_atcmdinfo_pdp_authentication_cfg(struct net_buf **buf,
 				}
 			}
 			LOG_INF("APN Password: %s",
-				log_strdup(ictx.mdm_apn.password));
+				ictx.mdm_apn.password);
 		}
 	}
 	net_buf_remove(buf, line_length);
@@ -2673,7 +2693,7 @@ static bool on_cmd_atcmdinfo_pdp_context(struct net_buf **buf, uint16_t len)
 		memset(line, 0, sizeof(line));
 		output_length = net_buf_linearize(line, SIZE_WITHOUT_NUL(line),
 						  *buf, 0, line_length);
-		LOG_DBG("length: %u: %s", line_length, log_strdup(line));
+		LOG_DBG("length: %u: %s", line_length, line);
 		if (output_length > 0) {
 			memset(ictx.mdm_apn.value, 0, sizeof(ictx.mdm_apn.value));
 			memset(ictx.mdm_pdp_addr_fam, 0, MDM_ADDR_FAM_MAX_LEN);
@@ -2689,7 +2709,7 @@ static bool on_cmd_atcmdinfo_pdp_context(struct net_buf **buf, uint16_t len)
 			while ((p != NULL) && (*p != '"') && (i < MDM_ADDR_FAM_MAX_LEN)) {
 				ictx.mdm_pdp_addr_fam[i++] = *p++;
 			}
-			LOG_DBG("PDP address family: %s", log_strdup(ictx.mdm_pdp_addr_fam));
+			LOG_DBG("PDP address family: %s", ictx.mdm_pdp_addr_fam);
 
 			/* APN after second , " */
 			p = strchr(p, ',');
@@ -2711,7 +2731,7 @@ static bool on_cmd_atcmdinfo_pdp_context(struct net_buf **buf, uint16_t len)
 				}
 			}
 
-			LOG_INF("APN: %s", log_strdup(ictx.mdm_apn.value));
+			LOG_INF("APN: %s", ictx.mdm_apn.value);
 		}
 	}
 done:
@@ -3466,7 +3486,7 @@ static bool on_cmd_rtc_query(struct net_buf **buf, uint16_t len)
 			len, str_len);
 	} else {
 		net_buf_linearize(rtc_string, str_len, *buf, 0, str_len);
-		LOG_INF("RTC string: '%s'", log_strdup(rtc_string));
+		LOG_INF("RTC string: '%s'", rtc_string);
 		ictx.local_time_valid = convert_time_string_to_struct(
 			&ictx.local_time, &ictx.local_time_offset, rtc_string);
 	}
@@ -3560,7 +3580,7 @@ static bool on_cmd_network_report(struct net_buf **buf, uint16_t len)
 				    sizeof(ictx.mdm_network_status) - 1, *buf,
 				    0, len);
 	ictx.mdm_network_status[out_len] = 0;
-	LOG_DBG("Network status: %s", log_strdup(ictx.mdm_network_status));
+	LOG_DBG("Network status: %s", ictx.mdm_network_status);
 	pos = strchr(ictx.mdm_network_status, ',');
 	if (pos) {
 		l = pos - ictx.mdm_network_status;
@@ -3602,7 +3622,7 @@ static bool on_cmd_atcmdinfo_rssi(struct net_buf **buf, uint16_t len)
 		delims[i] = strchr(search_start, ',');
 		if (!delims[i]) {
 			LOG_ERR("Could not find delim %d, val: %s", i,
-				log_strdup(value));
+				value);
 			goto done;
 		}
 		/* Start next search after current delim location */
@@ -3632,11 +3652,12 @@ static bool on_cmd_sockok(struct net_buf **buf, uint16_t len)
 {
 	struct hl7800_socket *sock = NULL;
 
-	ictx.last_error = 0;
 	sock = socket_from_id(ictx.last_socket_id);
 	if (!sock) {
+		ictx.last_error = 0;
 		k_sem_give(&ictx.response_sem);
 	} else {
+		sock->error = 0;
 		k_sem_give(&sock->sock_send_sem);
 	}
 	return true;
@@ -3667,9 +3688,8 @@ static bool on_cmd_sock_ind(struct net_buf **buf, uint16_t len, const char *cons
 	LOG_DBG("%s ID: %d", type, id);
 	sock = socket_from_id(id);
 	if (sock) {
+		sock->error = 0;
 		k_sem_give(&sock->sock_send_sem);
-	} else {
-		LOG_ERR("Could not find socket id (%d)", id);
 	}
 
 done:
@@ -3699,11 +3719,12 @@ static bool on_cmd_sockerror(struct net_buf **buf, uint16_t len)
 		LOG_ERR("'%s'", string);
 	}
 
-	ictx.last_error = -EIO;
 	sock = socket_from_id(ictx.last_socket_id);
 	if (!sock) {
+		ictx.last_error = -EIO;
 		k_sem_give(&ictx.response_sem);
 	} else {
+		sock->error = -EIO;
 		k_sem_give(&sock->sock_send_sem);
 	}
 
@@ -3720,13 +3741,14 @@ static bool on_cmd_sock_error_code(struct net_buf **buf, uint16_t len)
 	out_len = net_buf_linearize(value, sizeof(value), *buf, 0, len);
 	value[out_len] = 0;
 
-	LOG_ERR("Error code: %s", log_strdup(value));
+	LOG_ERR("Error code: %s", value);
 
-	ictx.last_error = -EIO;
 	sock = socket_from_id(ictx.last_socket_id);
 	if (!sock) {
+		ictx.last_error = -EIO;
 		k_sem_give(&ictx.response_sem);
 	} else {
+		sock->error = -EIO;
 		k_sem_give(&sock->sock_send_sem);
 	}
 
@@ -3752,9 +3774,8 @@ static void sock_notif_cb_work(struct k_work *work)
 	} else {
 		if (sock->type == SOCK_STREAM) {
 			LOG_DBG("Sock %d trigger NULL packet", sock->socket_id);
-			sock->state = SOCK_SERVER_CLOSED;
 			k_work_submit_to_queue(&hl7800_workq, &sock->recv_cb_work);
-			sock->error = false;
+			sock->error = 0;
 		}
 	}
 	hl7800_unlock();
@@ -3782,45 +3803,41 @@ static bool on_cmd_sock_notif(struct net_buf **buf, uint16_t len)
 		goto done;
 	}
 
+	id = strtol(value, NULL, 10);
 	notif_val = strtol(delim + 1, NULL, 10);
+	LOG_DBG("+K**P_NOTIF: %d,%d", id, notif_val);
+	sock = socket_from_id(id);
+	if (!sock) {
+		goto done;
+	}
+
 	switch (notif_val) {
 	case HL7800_TCP_DATA_SND:
 		err = false;
-		ictx.last_error = 0;
+		sock->error = 0;
 		break;
 	case HL7800_TCP_DISCON:
 		trigger_sem = false;
 		err = true;
-		ictx.last_error = -EIO;
+		sock->state = SOCK_SERVER_CLOSED;
+		sock->error = -EIO;
 		break;
 	default:
 		err = true;
-		ictx.last_error = -EIO;
+		sock->error = -EIO;
 		break;
 	}
 
-	id = strtol(value, NULL, 10);
-	LOG_WRN("+K**P_NOTIF: %d,%d", id, notif_val);
-
-	sock = socket_from_id(id);
 	if (err) {
-		if (sock) {
-			/* Send NULL packet to callback to notify upper stack layers
-			 * that the peer closed the connection or there was an error.
-			 * This is so an app will not get stuck in recv() forever.
-			 * Let's do the callback processing in a different work queue
-			 * so RX is not delayed.
-			 */
-			sock->error = true;
-			sock->error_val = notif_val;
-			k_work_reschedule_for_queue(&hl7800_workq,
-						    &sock->notif_work,
-						    MDM_SOCK_NOTIF_DELAY);
-			if (trigger_sem) {
-				k_sem_give(&sock->sock_send_sem);
-			}
-		} else {
-			LOG_ERR("Could not find socket id (%d)", id);
+		/* Send NULL packet to callback to notify upper stack layers
+		 * that the peer closed the connection or there was an error.
+		 * This is so an app will not get stuck in recv() forever.
+		 * Let's do the callback processing in a different work queue
+		 * so RX is not delayed.
+		 */
+		k_work_reschedule_for_queue(&hl7800_workq, &sock->notif_work, MDM_SOCK_NOTIF_DELAY);
+		if (trigger_sem) {
+			k_sem_give(&sock->sock_send_sem);
 		}
 	}
 done:
@@ -3943,7 +3960,7 @@ static void sock_read(struct net_buf **buf, uint16_t len)
 		goto exit;
 	}
 
-	if (sock->error) {
+	if (sock->error != 0) {
 		/* cancel notif work and restart */
 		k_work_reschedule_for_queue(&hl7800_workq, &sock->notif_work,
 					    MDM_SOCK_NOTIF_DELAY);
@@ -4019,7 +4036,7 @@ static void sock_read(struct net_buf **buf, uint16_t len)
 	/* remove EOF pattern from buffer */
 	net_buf_remove(buf, strlen(EOF_PATTERN));
 	if (strcmp(eof, EOF_PATTERN)) {
-		LOG_WRN("Could not find EOF [%s]", log_strdup(eof));
+		LOG_WRN("Could not find EOF [%s]", eof);
 	}
 
 	/* Make sure we have \r\nOK\r\n length in the buffer */
@@ -4047,7 +4064,7 @@ static void sock_read(struct net_buf **buf, uint16_t len)
 	/* remove the message from the buffer */
 	net_buf_remove(buf, strlen(OK_STRING));
 	if (strcmp(ok_resp, OK_STRING)) {
-		LOG_WRN("Could not find OK [%s]", log_strdup(ok_resp));
+		LOG_WRN("Could not find OK [%s]", ok_resp);
 	}
 
 	/* remove \r\n after OK */
@@ -4072,7 +4089,9 @@ rx_err:
 	sock->recv_pkt = NULL;
 done:
 	if (sock->type == SOCK_STREAM) {
-		sock->state = SOCK_CONNECTED;
+		if (sock->error == 0) {
+			sock->state = SOCK_CONNECTED;
+		}
 	} else {
 		sock->state = SOCK_IDLE;
 	}
@@ -4971,24 +4990,24 @@ static int compare_versions(char *v1, const char *v2)
 		ver2 = strtoul(v2, &tail2, 10);
 
 		/* if numbers differ, then set the result */
-		if (ver1 < ver2)
+		if (ver1 < ver2) {
 			result = -1;
-		else if (ver1 > ver2)
+		} else if (ver1 > ver2) {
 			result = 1;
-		else {
+		} else {
 			/* if numbers are the same, go to next level */
 			v1 = tail1;
 			v2 = tail2;
 			/* if we reach the end of both, then they are identical */
-			if (*v1 == '\0' && *v2 == '\0')
+			if (*v1 == '\0' && *v2 == '\0') {
 				break;
 			/* if we reach the end of one only, it is the smaller */
-			else if (*v1 == '\0')
+			} else if (*v1 == '\0') {
 				result = -1;
-			else if (*v2 == '\0')
+			} else if (*v2 == '\0') {
 				result = 1;
 			/*  not at end ... so far they match so keep going */
-			else {
+			} else {
 				v1++;
 				v2++;
 			}
@@ -5523,7 +5542,7 @@ static int connect_TCP_socket(struct hl7800_socket *sock)
 	 */
 	ret = k_sem_take(&sock->sock_send_sem, MDM_CMD_CONN_TIMEOUT);
 	if (ret == 0) {
-		ret = ictx.last_error;
+		ret = sock->error;
 	} else if (ret == -EAGAIN) {
 		ret = -ETIMEDOUT;
 	}
@@ -5608,7 +5627,7 @@ static int configure_UDP_socket(struct hl7800_socket *sock)
 	 */
 	ret = k_sem_take(&sock->sock_send_sem, MDM_CMD_CONN_TIMEOUT);
 	if (ret == 0) {
-		ret = ictx.last_error;
+		ret = sock->error;
 	} else if (ret == -EAGAIN) {
 		ret = -ETIMEDOUT;
 	}
@@ -5971,7 +5990,9 @@ static int offload_put(struct net_context *context)
 
 	wakeup_hl7800();
 
-	send_at_cmd(sock, cmd, MDM_CMD_SEND_TIMEOUT, 0, false);
+	if ((sock->type == SOCK_DGRAM) || (sock->state != SOCK_SERVER_CLOSED)) {
+		send_at_cmd(sock, cmd, MDM_CMD_SEND_TIMEOUT, 0, false);
+	}
 
 	if (sock->type == SOCK_STREAM) {
 		/* delete session */
@@ -6031,17 +6052,17 @@ int32_t mdm_hl7800_update_fw(char *file_path)
 	/* get file info */
 	ret = fs_stat(file_path, &file_info);
 	if (ret >= 0) {
-		LOG_DBG("file '%s' size %zu", log_strdup(file_info.name),
+		LOG_DBG("file '%s' size %zu", file_info.name,
 			file_info.size);
 	} else {
 		LOG_ERR("Failed to get file [%s] info: %d",
-			log_strdup(file_path), ret);
+			file_path, ret);
 		goto err;
 	}
 
 	ret = fs_open(&ictx.fw_update_file, file_path, FS_O_READ);
 	if (ret < 0) {
-		LOG_ERR("%s open err: %d", log_strdup(file_path), ret);
+		LOG_ERR("%s open err: %d", file_path, ret);
 		goto err;
 	}
 
