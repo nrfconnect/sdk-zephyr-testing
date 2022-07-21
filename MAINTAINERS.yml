@@ -508,6 +508,7 @@ Documentation:
         - alexanderwachter
         - karstenkoenig
         - martinjaeger
+        - str4t0m
     files:
         - doc/hardware/peripherals/canbus/
         - drivers/can/
@@ -688,6 +689,9 @@ Documentation:
     status: maintained
     maintainers:
         - mnkp
+    collaborators:
+        - henrikbrixandersen
+        - cfriedt
     files:
         - doc/hardware/peripherals/gpio.rst
         - drivers/gpio/
@@ -1411,12 +1415,13 @@ nRF52 BSIM:
         - "platform: nRF52 BSIM"
 
 POSIX API layer:
-    status: odd fixes
+    status: maintained
+    maintainers:
+        - cfriedt
     collaborators:
         - pfalcon
         - enjiamai
         - KangJianX
-        - cfriedt
     files:
         - include/zephyr/posix/
         - lib/posix/
@@ -1520,7 +1525,7 @@ Shields:
 SPARC arch:
     status: odd fixes
     collaborators:
-        - martin-aberg
+        - julius-barendt
     files:
         - arch/sparc/
         - include/zephyr/arch/sparc/
@@ -1737,6 +1742,7 @@ Renesas R-Car Platforms:
     files:
         - boards/arm/rcar_*/
         - drivers/*/*rcar*
+        - drivers/clock_control/*cpg_mssr*
         - dts/arm/renesas/
         - dts/bindings/*/*rcar*
         - soc/arm/renesas_rcar/
@@ -2199,7 +2205,7 @@ West:
 "West project: hal_telink":
     status: maintained
     maintainers:
-        - yurvyn
+        - andy-liu-telink
     files:
         - modules/Kconfig.telink
     labels:
