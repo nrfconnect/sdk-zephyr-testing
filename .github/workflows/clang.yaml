@@ -21,6 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        platform: ["native_posix"]
         subset: [1, 2, 3, 4, 5]
     env:
       ZEPHYR_SDK_INSTALL_DIR: /opt/toolchains/zephyr-sdk-0.14.2
@@ -88,7 +89,7 @@ jobs:
           message("::set-output name=repo::${repo2}")
       - name: use cache
         id: cache-ccache
-        uses: nashif/action-s3-cache@master
+        uses: zephyrproject-rtos/action-s3-cache@v1
         with:
           key: ${{ steps.ccache_cache_timestamp.outputs.repo }}-${{ github.ref_name }}-clang-${{ matrix.subset }}-ccache
           path: /github/home/.ccache
