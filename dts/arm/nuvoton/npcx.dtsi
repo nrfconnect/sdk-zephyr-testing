@@ -41,7 +41,7 @@
 		 * no_ks000-17 - PIN21.20.17.16.15.14.13.12.11.10.07.06.05.04.
 		 *                  82.83.03.B1
 		 */
-		pinctrl-0 = <>;
+		pinmux = <>;
 	};
 
 	def-lvol-io-list {
@@ -689,6 +689,12 @@
 			port = <0x70>;
 			controller = <&i2c_ctrl7>;
 			label = "I2C_7_PORT_0";
+			status = "disabled";
+		};
+
+		power_ctrl_psl: power-ctrl-psl {
+			compatible = "nuvoton,npcx-power-psl";
+			label = "POWER_CONTROL_PSL";
 			status = "disabled";
 		};
 	};
