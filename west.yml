@@ -161,7 +161,7 @@ manifest:
       revision: 12019623bbad9eb54fe51066847a7cbd4b4eac57
       path: modules/lib/loramac-node
     - name: lvgl
-      revision: 07eab463f991f9ea1738a671fa81ad1e54f50ffb
+      revision: 487bcde705b6f453d053f28dbba4dd9f353d1ccb
       path: modules/lib/gui/lvgl
     - name: lz4
       revision: 8e303c264fc21c2116dc612658003a22e933124d
@@ -200,7 +200,7 @@ manifest:
       path: modules/lib/picolibc
       revision: e87b2fc37345a62361478f0a6efd140e14180ba5
     - name: segger
-      revision: 3a52ab222133193802d3c3b4d21730b9b1f1d2f6
+      revision: d4e568a920b4bd087886170a5624c167b2d0665e
       path: modules/debug/segger
       groups:
         - debug
@@ -235,7 +235,7 @@ manifest:
       groups:
         - tee
     - name: psa-arch-tests
-      revision: a81f9da287569f169d60026916952641b233faa8
+      revision: f4fc2442b8e29e2a03d9899e46e5a3ea3df8c2c9
       path: modules/tee/tf-m/psa-arch-tests
       groups:
         - tee
