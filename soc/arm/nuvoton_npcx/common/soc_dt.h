@@ -263,7 +263,7 @@
 			DT_PROP(child, group_mask),                            \
 			0);						       \
 		irq_enable(DT_PROP(child, irq));                               \
-	} while (0)
+	} while (false)
 
 /**
  * @brief Get a child node from path '/npcx-espi-vws-map/name'.
@@ -334,206 +334,46 @@
 	}
 
 /**
- * @brief Get a node from path '/def_lvol_io_list' which has a property
- *        'lvol-io-pads' contains low-voltage configurations and need to set
- *        by default.
+ * @brief Construct a npcx_lvol structure from 'lvol-maps' property at index 'i'.
  *
- * @return node identifier with that path.
+ * @param node_id Node identifier.
+ * @param prop Low voltage configurations property name. (i.e. 'lvol-maps')
+ * @param idx Property entry index.
  */
-#define NPCX_DT_NODE_DEF_LVOL_LIST  DT_PATH(def_lvol_io_list)
+#define NPCX_DT_LVOL_CTRL_NONE \
+	DT_PHA(DT_NODELABEL(lvol_none), lvols, ctrl)
 
 /**
- * @brief Length of npcx_lvol structures in 'lvol-io-pads' property
+ * @brief Length of npcx_lvol structures in 'lvol-maps' property
  *
- * @return length of 'lvol-io-pads' prop which type is 'phandles'
+ * @param inst instance number for compatible defined in DT_DRV_COMPAT.
+ * @return length of 'lvol-maps' prop which type is 'phandles'
  */
-#define NPCX_DT_LVOL_ITEMS_LEN DT_PROP_LEN(NPCX_DT_NODE_DEF_LVOL_LIST, \
-								lvol_io_pads)
+#define NPCX_DT_LVOL_ITEMS_LEN(inst) DT_INST_PROP_LEN(inst, lvol_maps)
 
 /**
- * @brief Get phandle from 'lvol-io-pads' prop which type is 'phandles' at index
- *        'i'
+ * @brief Construct a npcx_lvol structure from 'lvol-maps' property at index 'i'.
  *
- * @param i index of 'lvol-io-pads' prop which type is 'phandles'
- * @return phandle from 'lvol-io-pads' prop at index 'i'
+ * @param node_id Node identifier.
+ * @param prop Low voltage configurations property name. (i.e. 'lvol-maps')
+ * @param idx Property entry index.
  */
-#define NPCX_DT_PHANDLE_FROM_LVOL_IO_PADS(i) \
-	DT_PHANDLE_BY_IDX(NPCX_DT_NODE_DEF_LVOL_LIST, lvol_io_pads, i)
-
-/**
- * @brief Construct a npcx_lvol structure from 'lvol-io-pads' property at index
- *        'i'.
- *
- * @param i index of 'lvol-io-pads' prop which type is 'phandles'
- * @return npcx_lvol item from 'lvol-io-pads' property at index 'i'
- */
-#define NPCX_DT_LVOL_ITEMS_BY_IDX(i, _)                                        \
-	{                                                                      \
-	  .io_port = DT_PHA(NPCX_DT_PHANDLE_FROM_LVOL_IO_PADS(i),              \
-							lvols, io_port),       \
-	  .io_bit = DT_PHA(NPCX_DT_PHANDLE_FROM_LVOL_IO_PADS(i),               \
-							lvols, io_bit),        \
-	  .ctrl = DT_PHA(NPCX_DT_PHANDLE_FROM_LVOL_IO_PADS(i),                 \
-							lvols, ctrl),          \
-	  .bit = DT_PHA(NPCX_DT_PHANDLE_FROM_LVOL_IO_PADS(i),                  \
-							lvols, bit),           \
-	}
-
-/**
- * @brief Macro function to construct a list of npcx_lvol items by UTIL_LISTIFY
- *        func.
- *
- * Example devicetree fragment:
- *    / {
- *          def_lvol_io_list {
- *              compatible = "nuvoton,npcx-lvolctrl-def";
- *              lvol-io-pads = <&lvol_io90   // I2C1_SCL0 1.8V support
- *                              &lvol_io87>; // I2C1_SDA0 1,8V support
- *          };
- *	};
- *
- * Example usage:
- * static const struct npcx_lvol def_lvols[] = NPCX_DT_IO_LVOL_ITEMS_DEF_LIST;
- *
- * @return an array of npcx_lvol items which configure low-voltage support
- */
-#define NPCX_DT_IO_LVOL_ITEMS_DEF_LIST {			\
-		LISTIFY(NPCX_DT_LVOL_ITEMS_LEN,			\
-			NPCX_DT_LVOL_ITEMS_BY_IDX, (,), _)	\
-	}
-
-/**
- * @brief Get a node from path '/vsby-psl-in-list' which has a property
- *        'psl-in-pads' contains Power Switch Logic (PSL) input pads which are
- *        in charge of detecting wake-up events on VSBY power domain.
- *
- * @return node identifier with that path.
- */
-#define NPCX_DT_NODE_PSL_IN_LIST  DT_PATH(vsby_psl_in_list)
-
-/**
- * @brief Length of npcx_psl_in structures in 'psl-in-pads' property
- *
- * @return length of 'psl-in-pads' prop which type is 'phandles'
- */
-#define NPCX_DT_PSL_IN_ITEMS_LEN DT_PROP_LEN(NPCX_DT_NODE_PSL_IN_LIST, \
-								psl_in_pads)
-
-/**
- * @brief Get phandle from 'psl-in-pads' prop which type is 'phandles' at index
- *        'i'
- *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return phandle from 'psl-in-pads' prop at index 'i'
- */
-#define NPCX_DT_PHANDLE_FROM_PSL_IN_NODE(i) \
-	DT_PHANDLE_BY_IDX(NPCX_DT_NODE_PSL_IN_LIST, psl_in_pads, i)
-
-/**
- * @brief Get phandle from 'pinctrl-0' prop which type is 'phandles' at index
- *        'i'
- *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return phandle from 'pinctrl-0' prop at index 'i'
- */
-#define NPCX_DT_PHANDLE_FROM_PSL_PINMUX_NODE(i) \
-	DT_PINCTRL_0(NPCX_DT_PHANDLE_FROM_PSL_IN_NODE(i), 0)
-
-/**
- * @brief Get phandle from 'polarity-0' prop which type is 'phandles' at index
- *        'i'
- *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return phandle from 'polarity-0' prop at index 'i'
- */
-#define NPCX_DT_PHANDLE_FROM_PSL_POLARITY_NODE(i) \
-	DT_PHANDLE(NPCX_DT_PHANDLE_FROM_PSL_IN_NODE(i), polarity_0)
-
-/**
- * @brief Construct a npcx_alt structure from 'pinctrl-0' property at index 'i'
- *        of 'psl-in-pads' prop.
- *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return npcx_alt item from 'pinctrl-0' property at index 'i'
- */
-#define NPCX_DT_PSL_IN_ALT_CONF_BY_IDX(i)                                         \
-	{                                                                         \
-	  .group = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_PINMUX_NODE(i), alts, group),  \
-	  .bit = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_PINMUX_NODE(i), alts, bit),      \
-	  .inverted = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_PINMUX_NODE(i), alts, inv), \
+#define NPCX_DT_LVOL_ITEMS_INIT(node_id, prop, idx)				\
+	{									\
+	  .ctrl = DT_PHA(DT_PROP_BY_IDX(node_id, prop, idx), lvols, ctrl),	\
+	  .bit = DT_PHA(DT_PROP_BY_IDX(node_id, prop, idx), lvols, bit),	\
 	},
 
 /**
- * @brief Construct a npcx_alt structure from 'polarity-0' property at index 'i'
- *        of 'psl-in-pads' prop.
+ * @brief Macro function to construct a list of npcx_lvol items  from 'lvol-maps'
+ * property.
  *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return npcx_alt item from 'pinctrl-0' property at index 'i'
+ * @param inst instance number for compatible defined in DT_DRV_COMPAT.
+ * @return an array of npcx_lvol items.
  */
-#define NPCX_DT_PSL_IN_POL_CONF_BY_IDX(i)                                                 \
-	{                                                                                 \
-		.group = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_POLARITY_NODE(i), alts, group),  \
-		.bit = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_POLARITY_NODE(i), alts, bit),      \
-		.inverted = DT_PHA(NPCX_DT_PHANDLE_FROM_PSL_POLARITY_NODE(i), alts, inv), \
-	},
-
-/**
- * @brief Construct a npcx_psl_in structure from 'psl-in-pads' property at index
- *        'i'
- *
- * @param i index of 'psl-in-pads' prop which type is 'phandles'
- * @return npcx_psl_in item from 'psl-in-pads' property at index 'i'
- */
-#define NPCX_DT_PSL_IN_ITEMS_BY_IDX(i, _)                                      \
-	{                                                                      \
-		.flag = DT_PROP(NPCX_DT_PHANDLE_FROM_PSL_IN_NODE(i), flag),    \
-		.offset = DT_PROP(NPCX_DT_PHANDLE_FROM_PSL_IN_NODE(i), offset),\
-		.pinctrl = NPCX_DT_PSL_IN_ALT_CONF_BY_IDX(i)                   \
-		.polarity = NPCX_DT_PSL_IN_POL_CONF_BY_IDX(i)                  \
-	}
-
-/**
- * @brief Macro function to construct a list of npcx_psl_in items by
- *        UTIL_LISTIFY func.
- *
- * Example devicetree fragment:
- *    / {
- *          vsby-psl-in-list {
- *              psl-in-pads = <&psl_in1>;
- *          };
- *	};
- *   &psl_in1 {
- *	flag = <NPCX_PSL_FALLING_EDGE>;
- *   };
- *
- * Example usage:
- * static const struct npcx_psl_in psl_in_confs[] = NPCX_DT_PSL_IN_ITEMS_LIST;
- *
- * @return an array of npcx_psl_in items which configures PSL input pads
- */
-#define NPCX_DT_PSL_IN_ITEMS_LIST {				\
-		LISTIFY(NPCX_DT_PSL_IN_ITEMS_LEN,		\
-			NPCX_DT_PSL_IN_ITEMS_BY_IDX, (,), _)	\
-	}
-
-/**
- * @brief Get base address of corresponding GPIO controller for enabling PSL
- *        output.
- *
- * @param @param inst number for devices with compatible 'nuvoton_npcx_psl_out'.
- * @return base address of corresponding GPIO controller
- */
-#define NPCX_DT_PSL_OUT_CONTROLLER(inst) DT_REG_ADDR_BY_IDX(DT_PHANDLE_BY_IDX( \
-		DT_INST(inst, nuvoton_npcx_psl_out), controller, 0), 0)
-
-/**
- * @brief Get pin of corresponding GPIO controller for enabling PSL output.
- *
- * @param @param inst number for devices with compatible 'nuvoton_npcx_psl_out'.
- * @return pin of corresponding GPIO controller.
- */
-#define NPCX_DT_PSL_OUT_PIN(inst) DT_PROP(DT_INST(inst, nuvoton_npcx_psl_out), \
-							pin)
+#define NPCX_DT_LVOL_ITEMS_LIST(inst) {						\
+	DT_FOREACH_PROP_ELEM(DT_DRV_INST(inst), lvol_maps,			\
+						NPCX_DT_LVOL_ITEMS_INIT)}
 
 /**
  * @brief Check if the host interface type is automatically configured by
