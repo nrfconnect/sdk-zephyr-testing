@@ -23,17 +23,9 @@ config SOC_PART_NUMBER
 config NUM_IRQS
 	default 47
 
-config GPIO_SAM
-	default y
-	depends on GPIO
-
 config I2C_SAM_TWI
 	default y
 	depends on I2C
-
-config SPI_SAM
-	default y
-	depends on SPI
 
 if NETWORKING
 
