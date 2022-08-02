@@ -62,7 +62,7 @@ manifest:
       groups:
         - hal
     - name: hal_espressif
-      revision: 7c24ff5651bd6344b3e5ac4bee420f27c7cc591a
+      revision: 42ce90fa07cb696ebee65441f9f7d468032575d7
       path: modules/hal/espressif
       west-commands: west/west-commands.yml
       groups:
@@ -129,13 +129,13 @@ manifest:
       groups:
         - hal
     - name: hal_telink
-      revision: d7b72519dc5288487e6eedf39c08c3b12ce307ff
+      revision: 38573af589173259801ae6c2b34b7d4c9e626746
       path: modules/hal/telink
       submodules: true
       groups:
         - hal
     - name: hal_ti
-      revision: 905a5d4134899630071f9383aadaaf266e8f8cd2
+      revision: b6ca1ace9024afa072c0ff8294d04b8d9fe4aede
       path: modules/hal/ti
       groups:
         - hal
@@ -180,7 +180,7 @@ manifest:
         - debug
       revision: a5163c1800a5243f8b05d84c942da008df4cb666
     - name: nanopb
-      revision: d148bd26718e4c10414f07a7eb1bd24c62e56c5d
+      revision: dc4deed54fd4c7e1935e3b6387eedf21bb45dc38
       path: modules/lib/nanopb
     - name: net-tools
       revision: e0828aa9629b533644dc96ff6d1295c939bd713c
@@ -194,7 +194,7 @@ manifest:
       revision: 8d53544871e1f300c478224faca6be8384ab0d04
       path: modules/lib/open-amp
     - name: openthread
-      revision: 978a600f09b892c7ab4b27c10604a574ea20e05e
+      revision: b21e99b4b3d823f71c902b9174ff62b964c124f0
       path: modules/lib/openthread
     - name: picolibc
       path: modules/lib/picolibc

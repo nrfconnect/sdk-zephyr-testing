@@ -69,6 +69,86 @@ enum bt_audio_context {
 					  BT_AUDIO_CONTEXT_TYPE_ALERTS | \
 					  BT_AUDIO_CONTEXT_TYPE_EMERGENCY_ALARM)
 
+/**
+ * @brief Parental rating defined by the Generic Audio assigned numbers (bluetooth.com).
+ *
+ * The numbering scheme is aligned with Annex F of EN 300 707 v1.2.1 which
+ * defined parental rating for viewing.
+ */
+enum bt_audio_parental_rating {
+	BT_AUDIO_PARENTAL_RATING_NO_RATING        = 0x00,
+	BT_AUDIO_PARENTAL_RATING_AGE_ANY          = 0x01,
+	BT_AUDIO_PARENTAL_RATING_AGE_5_OR_ABOVE   = 0x02,
+	BT_AUDIO_PARENTAL_RATING_AGE_6_OR_ABOVE   = 0x03,
+	BT_AUDIO_PARENTAL_RATING_AGE_7_OR_ABOVE   = 0x04,
+	BT_AUDIO_PARENTAL_RATING_AGE_8_OR_ABOVE   = 0x05,
+	BT_AUDIO_PARENTAL_RATING_AGE_9_OR_ABOVE   = 0x06,
+	BT_AUDIO_PARENTAL_RATING_AGE_10_OR_ABOVE  = 0x07,
+	BT_AUDIO_PARENTAL_RATING_AGE_11_OR_ABOVE  = 0x08,
+	BT_AUDIO_PARENTAL_RATING_AGE_12_OR_ABOVE  = 0x09,
+	BT_AUDIO_PARENTAL_RATING_AGE_13_OR_ABOVE  = 0x0A,
+	BT_AUDIO_PARENTAL_RATING_AGE_14_OR_ABOVE  = 0x0B,
+	BT_AUDIO_PARENTAL_RATING_AGE_15_OR_ABOVE  = 0x0C,
+	BT_AUDIO_PARENTAL_RATING_AGE_16_OR_ABOVE  = 0x0D,
+	BT_AUDIO_PARENTAL_RATING_AGE_17_OR_ABOVE  = 0x0E,
+	BT_AUDIO_PARENTAL_RATING_AGE_18_OR_ABOVE  = 0x0F
+};
+
+/**
+ * @brief Codec metadata type IDs
+ *
+ * Metadata types defined by the Generic Audio assigned numbers (bluetooth.com).
+ */
+enum bt_audio_metadata_type {
+	/** @brief Preferred audio context.
+	 *
+	 * Bitfield of preferred audio contexts.
+	 *
+	 * If 0, the context type is not a preferred use case for this codec
+	 * configuration.
+	 *
+	 * See the BT_AUDIO_CONTEXT_* for valid values.
+	 */
+	BT_AUDIO_METADATA_TYPE_PREF_CONTEXT      = 0x01,
+
+	/** @brief Streaming audio context.
+	 *
+	 * Bitfield of streaming audio contexts.
+	 *
+	 * If 0, the context type is not a preferred use case for this codec
+	 * configuration.
+	 *
+	 * See the BT_AUDIO_CONTEXT_* for valid values.
+	 */
+	BT_AUDIO_METADATA_TYPE_STREAM_CONTEXT    = 0x02,
+
+	/** UTF-8 encoded title or summary of stream content */
+	BT_AUDIO_METADATA_TYPE_PROGRAM_INFO      = 0x03,
+
+	/** @brief Stream language
+	 *
+	 * 3 octet lower case language code defined by ISO 639-3
+	 */
+	BT_AUDIO_METADATA_TYPE_STREAM_LANG       = 0x04,
+
+	/** Array of 8-bit CCID values */
+	BT_AUDIO_METADATA_TYPE_CCID_LIST         = 0x05,
+
+	/** @brief Parental rating
+	 *
+	 * See @ref bt_audio_parental_rating for valid values.
+	 */
+	BT_AUDIO_METADATA_TYPE_PARENTAL_RATING   = 0x06,
+
+	/** UTF-8 encoded URI for additional Program information */
+	BT_AUDIO_METADATA_TYPE_PROGRAM_INFO_URI  = 0x07,
+
+	/** Extended metadata */
+	BT_AUDIO_METADATA_TYPE_EXTENDED          = 0xFE,
+
+	/** Vendor specific metadata */
+	BT_AUDIO_METADATA_TYPE_VENDOR            = 0xFF,
+};
 
 /* Unicast Announcement Type, Generic Audio */
 #define BT_AUDIO_UNICAST_ANNOUNCEMENT_GENERAL    0x00
@@ -132,23 +212,6 @@ struct bt_codec_data {
 		.meta_count = ARRAY_SIZE(((struct bt_codec_data[]) _meta)), \
 		.meta = _meta, \
 	}
-
-
-/** @brief Meta data type ids used for LTV encoded metadata.
- *
- * These values are defined by the Generic Audio Assigned Numbers, bluetooth.com
- */
-enum bt_audio_meta_type {
-	BT_CODEC_META_PREFER_CONTEXT     = 0x01,
-	BT_CODEC_META_CONTEXT            = 0x02,
-	BT_CODEC_META_PROGRAM_INFO       = 0x03,
-	BT_CODEC_META_LANGUAGE           = 0x04,
-	BT_CODEC_META_CCID_LIST          = 0x05,
-	BT_CODEC_META_PARENTAL_RATING    = 0x06,
-	BT_CODEC_META_PROGRAM_INFO_URI   = 0x07,
-	BT_CODEC_META_EXTENDED_METADATA  = 0xFE,
-	BT_CODEC_META_VENDOR_SPECIFIC    = 0xFF,
-};
 
 /** @brief Location values for BT Audio.
  *
@@ -1466,12 +1529,14 @@ struct bt_audio_broadcast_sink_cb {
 	 *  found.
 	 *
 	 *  @param info          Advertiser packet information.
+	 *  @param ad            Buffer containing advertiser data.
 	 *  @param broadcast_id  24-bit broadcast ID
 	 *
 	 *  @return true to sync to the broadcaster, else false.
 	 *          Syncing to the broadcaster will stop the current scan.
 	 */
 	bool (*scan_recv)(const struct bt_le_scan_recv_info *info,
+			  struct net_buf_simple *ad,
 			  uint32_t broadcast_id);
 
 	/** @brief Periodic advertising sync callback
@@ -1815,13 +1880,11 @@ int bt_audio_stream_reconfig(struct bt_audio_stream *stream,
  *
  *  @param conn  Connection object
  *  @param group Unicast group object
- *  @param qos   Quality of Service configuration
  *
  *  @return 0 in case of success or negative value in case of error.
  */
 int bt_audio_stream_qos(struct bt_conn *conn,
-			struct bt_audio_unicast_group *group,
-			struct bt_codec_qos *qos);
+			struct bt_audio_unicast_group *group);
 
 /** @brief Enable Audio Stream
  *
@@ -1935,21 +1998,41 @@ int bt_audio_stream_release(struct bt_audio_stream *stream, bool cache);
 int bt_audio_stream_send(struct bt_audio_stream *stream, struct net_buf *buf,
 			 uint32_t seq_num, uint32_t ts);
 
+/** @brief Parameter struct for the unicast group functions
+ *
+ * Parameter struct for the bt_audio_unicast_group_create() and
+ * bt_audio_unicast_group_add_streams() functions.
+ */
+struct bt_audio_unicast_group_param {
+	/** Pointer to a stream object. */
+	struct bt_audio_stream *stream;
+
+	/** The QoS settings for the @ref bt_audio_unicast_group_param.stream. */
+	struct bt_codec_qos *qos;
+
+	/** @brief The direction of the @ref bt_audio_unicast_group_param.stream
+	 *
+	 * If two streams are being used for the same ACL connection but in
+	 * different directions, they may use the same CIS.
+	 */
+	enum bt_audio_dir dir;
+};
+
 /** @brief Create audio unicast group.
  *
  *  Create a new audio unicast group with one or more audio streams as a
  *  unicast client. Streams in a unicast group shall share the same interval,
  *  framing and latency (see @ref bt_codec_qos).
  *
- *  @param[in]  streams        Array of stream object pointers being used for
+ *  @param[in]  params         Array of stream parameters being used for
  *                             the group.
- *  @param[in]  num_stream     Number of streams in @p streams.
+ *  @param[in]  num_param      Number of parameters in @p params.
  *  @param[out] unicast_group  Pointer to the unicast group created
  *
  *  @return Zero on success or (negative) error code otherwise.
  */
-int bt_audio_unicast_group_create(struct bt_audio_stream *streams[],
-				  size_t num_stream,
+int bt_audio_unicast_group_create(struct bt_audio_unicast_group_param params[],
+				  size_t num_param,
 				  struct bt_audio_unicast_group **unicast_group);
 
 /** @brief Add streams to a unicast group as a unicast client
@@ -1962,34 +2045,21 @@ int bt_audio_unicast_group_create(struct bt_audio_stream *streams[],
  *  This can also be called after the streams have been stopped
  *  (see bt_audio_stream_ops.stopped()).
  *
+ *  Once a stream has been added to a unicast group, it cannot be removed.
+ *  To remove a stream from a group, the group must be deleted with
+ *  bt_audio_unicast_group_delete(), but this will require all streams in the
+ *  group to be released first.
+ *
  *  @param unicast_group  Pointer to the unicast group
- *  @param streams        Array of stream object pointers being added to the
- *                        group.
- *  @param num_stream     Number of streams in @p streams.
+ *  @param params         Array of stream parameters with streams being added
+ *                        to the group.
+ *  @param num_param      Number of paramers in @p params.
  *
  *  @return 0 in case of success or negative value in case of error.
  */
 int bt_audio_unicast_group_add_streams(struct bt_audio_unicast_group *unicast_group,
-				       struct bt_audio_stream *streams[],
-				       size_t num_stream);
-
-/** @brief Remove streams from a unicast group as a unicast client
- *
- *  This function can be used to remove streams from a bt_audio_unicast_group.
- *
- *  This can be called at any time before any of the streams in the
- *  group has been QoS configured (see bt_audio_stream_ops.qos_set()).
- *
- *  @param unicast_group  Pointer to the unicast group
- *  @param streams        Array of stream object pointers removed from the
- *                        group.
- *  @param num_stream     Number of streams in @p streams.
- *
- *  @return 0 in case of success or negative value in case of error.
- */
-int bt_audio_unicast_group_remove_streams(struct bt_audio_unicast_group *unicast_group,
-					  struct bt_audio_stream *streams[],
-					  size_t num_stream);
+				       struct bt_audio_unicast_group_param params[],
+				       size_t num_param);
 
 /** @brief Delete audio unicast group.
  *
@@ -2275,7 +2345,7 @@ int bt_codec_cfg_get_frame_blocks_per_sdu(const struct bt_codec *codec, bool fal
  *  Typically types used are:
  *  @ref bt_codec_capability_type
  *  @ref bt_codec_config_type
- *  @ref bt_audio_meta_type
+ *  @ref bt_audio_metadata_type
  *
  *  @param codec The codec data to search in.
  *  @param type The type id to look for
