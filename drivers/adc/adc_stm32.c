@@ -261,6 +261,7 @@ struct adc_stm32_cfg {
 	const struct pinctrl_dev_config *pcfg;
 	bool has_temp_channel;
 	bool has_vref_channel;
+	bool has_vbat_channel;
 };
 
 #ifdef CONFIG_ADC_STM32_SHARED_IRQS
@@ -403,6 +404,7 @@ static void adc_stm32_oversampling_scope(ADC_TypeDef *adc, uint32_t ovs_scope)
 	LL_ADC_SetOverSamplingScope(adc, ovs_scope);
 }
 
+#if !defined(CONFIG_SOC_SERIES_STM32H7X)
 /*
  * Function to configure the oversampling ratio and shift. It is basically a
  * wrapper over LL_ADC_SetOverSamplingRatioShift() which in addition stops the
@@ -424,12 +426,13 @@ static void adc_stm32_oversampling_ratioshift(ADC_TypeDef *adc, uint32_t ratio, 
 #endif
 	LL_ADC_ConfigOverSamplingRatioShift(adc, ratio, shift);
 }
+#endif
 
-	/*
-	 * Function to configure the oversampling ratio and shit using stm32 LL
-	 * ratio is directly the sequence->oversampling (a 2^n value)
-	 * shift is the corresponding LL_ADC_OVS_SHIFT_RIGHT_x constant
-	 */
+/*
+ * Function to configure the oversampling ratio and shit using stm32 LL
+ * ratio is directly the sequence->oversampling (a 2^n value)
+ * shift is the corresponding LL_ADC_OVS_SHIFT_RIGHT_x constant
+ */
 static void adc_stm32_oversampling(ADC_TypeDef *adc, uint8_t ratio, uint32_t shift)
 {
 	adc_stm32_oversampling_scope(adc, LL_ADC_OVS_GRP_REGULAR_CONTINUED);
@@ -833,6 +836,10 @@ static void adc_stm32_setup_speed(const struct device *dev, uint8_t id,
 	LL_ADC_SetSamplingTimeCommonChannels(adc,
 		table_samp_time[acq_time_index]);
 #elif defined(CONFIG_SOC_SERIES_STM32G0X)
+	/* Errata ES0418 and more: ADC sampling time might be one cycle longer */
+	if (acq_time_index  < 2) {
+		acq_time_index = 2;
+	}
 	LL_ADC_SetSamplingTimeCommonChannels(adc, LL_ADC_SAMPLINGTIME_COMMON_1,
 		table_samp_time[acq_time_index]);
 #else
@@ -871,6 +878,14 @@ static void adc_stm32_setup_channels(const struct device *dev, uint8_t channel_i
 		__LL_ADC_CHANNEL_TO_DECIMAL_NB(LL_ADC_CHANNEL_VREFINT) == channel_id) {
 		adc_stm32_set_common_path(dev, LL_ADC_PATH_INTERNAL_VREFINT);
 	}
+#if defined(LL_ADC_CHANNEL_VBAT)
+	/* Enable the bridge divider only when needed for ADC conversion. */
+	if (config->has_vbat_channel &&
+		__LL_ADC_CHANNEL_TO_DECIMAL_NB(LL_ADC_CHANNEL_VBAT) == channel_id) {
+		adc_stm32_set_common_path(dev, LL_ADC_PATH_INTERNAL_VBAT);
+	}
+
+#endif /* LL_ADC_CHANNEL_VBAT */
 }
 
 static int adc_stm32_channel_setup(const struct device *dev,
@@ -1186,8 +1201,9 @@ static const struct adc_stm32_cfg adc_stm32_cfg_##index = {		\
 		.bus = DT_INST_CLOCKS_CELL(index, bus),			\
 	},								\
 	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),			\
-	.has_temp_channel = DT_INST_PROP(index, has_temp_channel),		\
-	.has_vref_channel = DT_INST_PROP(index, has_vref_channel),		\
+	.has_temp_channel = DT_INST_PROP(index, has_temp_channel),	\
+	.has_vref_channel = DT_INST_PROP(index, has_vref_channel),	\
+	.has_vbat_channel = DT_INST_PROP(index, has_vbat_channel),	\
 };
 #else
 #define ADC_STM32_CONFIG(index)						\
@@ -1207,8 +1223,9 @@ static const struct adc_stm32_cfg adc_stm32_cfg_##index = {		\
 		.bus = DT_INST_CLOCKS_CELL(index, bus),			\
 	},								\
 	.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),			\
-	.has_temp_channel = DT_INST_PROP(index, has_temp_channel),		\
-	.has_vref_channel = DT_INST_PROP(index, has_vref_channel),		\
+	.has_temp_channel = DT_INST_PROP(index, has_temp_channel),	\
+	.has_vref_channel = DT_INST_PROP(index, has_vref_channel),	\
+	.has_vbat_channel = DT_INST_PROP(index, has_vbat_channel),	\
 };
 #endif /* CONFIG_ADC_STM32_SHARED_IRQS */
 
