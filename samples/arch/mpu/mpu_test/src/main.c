@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 #include <stdlib.h>
-
+/* dummy PR to check workflows*/
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
