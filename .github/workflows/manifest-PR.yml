@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: handle manifest PR
-        uses: nrfconnect/action-manifest-pr@main
+        uses: nrfconnect/action-manifest-pr@rebaseOnUpdates
         with:
           token: ${{ secrets.NCS_GITHUB_TOKEN }}
           manifest-pr-title-details: ${{ github.event.pull_request.title }}
