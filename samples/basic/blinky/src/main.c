@@ -3,11 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
+/*checking if workflow rebase sdk-nrf-testing*/
+/*stest12*/
 #include <stdio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
-
+/*rerweregggggffff*/
 /* 1000 msec = 1 sec */
 #define SLEEP_TIME_MS   1000
 
